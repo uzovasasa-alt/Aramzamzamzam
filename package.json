@@ -1,0 +1,13 @@
+{
+  "name": "agrocontrol",
+  "private": true,
+  "description": "Контроль топлива и рабочего времени сельхозтехники — монорепозиторий",
+  "scripts": {
+    "sim": "tsx simulator/sim.ts",
+    "test": "tsx --test backend/src/domain/*.spec.ts backend/src/telemetry/parsers/*.spec.ts simulator/*.spec.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.0"
+  }
+}

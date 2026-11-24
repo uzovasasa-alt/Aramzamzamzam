@@ -1,0 +1,59 @@
+# Полный стенд одной командой:  docker compose up -d --build
+#   веб-панель:    http://localhost:8080
+#   API + Swagger: http://localhost:3000/api/docs
+# Демо-данные:  docker compose exec backend npm run seed:prod
+#
+# Фото хранятся на диске в томе `photos` (STORAGE_DRIVER=disk). MinIO из стенда убран:
+# его образы удалены из Docker Hub. Для продакшена подключается любое S3-хранилище
+# (Yandex Object Storage, VK Cloud, Selectel), см. backend/.env.example.
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    # Официальный образ PostGIS собран только под x86. На Mac с M1/M2/M3 он запускается
+    # через эмуляцию Rosetta. Это нормально, просто чуть медленнее.
+    platform: linux/amd64
+    environment:
+      POSTGRES_USER: agro
+      POSTGRES_PASSWORD: agro
+      POSTGRES_DB: agro
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agro"]
+      interval: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgres://agro:agro@db:5432/agro
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-access-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-me}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-disk}
+      DISK_STORAGE_PATH: /data/photos
+      # используются, только если STORAGE_DRIVER=s3
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-ru-central1}
+      S3_BUCKET: ${S3_BUCKET:-agro-photos}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      TELEMETRY_HTTP_KEY: ${TELEMETRY_HTTP_KEY:-change-me-telemetry}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      CORS_ORIGIN: http://localhost:8080,http://localhost:5173
+    volumes: [photos:/data/photos]
+    ports:
+      - "3000:3000"
+      - "5027:5027"     # Teltonika
+      - "20332:20332"   # Wialon IPS
+
+  web:
+    build: ./web
+    depends_on: [backend]
+    ports: ["8080:80"]
+
+volumes:
+  pgdata:
+  photos:
